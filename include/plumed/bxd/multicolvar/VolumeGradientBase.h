@@ -1,0 +1,1 @@
+#include "../../multicolvar/VolumeGradientBase.h"
