@@ -28,7 +28,8 @@ namespace PLMD{
 class BXD :
     // public Bias,
     public ActionAtomistic,
-    public ActionPilot
+    public ActionPilot,
+    public ActionWithArguments
 {
     private:
       double boxSeparation;
@@ -36,11 +37,11 @@ class BXD :
       int natoms;
 
       // Resolving the diamond inheritance from ActionAtomistic and ActionWithArguments
-    //   bool lockRequestArguments;
-    //   bool lockRequestAtoms;
-    //   virtual void lockRequests();
-    //   virtual void unlockRequests();
-    //   virtual void calculateNumericalDerivatives( ActionWithValue* a=NULL ){};
+      bool lockRequestArguments;
+      bool lockRequestAtoms;
+      virtual void lockRequests(){};
+      virtual void unlockRequests(){};
+      virtual void calculateNumericalDerivatives( ActionWithValue* a=NULL ){};
     
     
     public:
@@ -63,6 +64,7 @@ void BXD::registerKeywords(Keywords& keys)
     Action::registerKeywords( keys );
     ActionAtomistic::registerKeywords(keys);
     ActionPilot::registerKeywords(keys);
+    ActionWithArguments::registerKeywords(keys);
     keys.add("hidden","STRIDE","The stride for ActionPilot");
     // keys.add("atoms","ATOMS","the pair of atom that we are calculating the distance between");
     // keys.use("ARG");                // This enables to use collective variables
@@ -78,7 +80,8 @@ BXD::BXD(const ActionOptions& ao):
     Action(ao),
     // Bias(ao),
     ActionAtomistic(ao),
-    ActionPilot(ao)
+    ActionPilot(ao),
+    ActionWithArguments(ao)
 {
     // parse("BOXSEP", boxSeparation);
     // parse("NUMBOXES", numBoxes);
