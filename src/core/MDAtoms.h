@@ -62,12 +62,16 @@ public:
   virtual void setBox(void*)=0;
 /// Set a pointer to the positions array in the MD code
   virtual void setp(void*p)=0;
+/// Set a pointer to the velocities array in the MD code <----- New
+  virtual void setv(void*v)=0;
 /// Set a pointer to the virial array (3x3) in the MD code
   virtual void setVirial(void*)=0;
 /// Set a pointer to the forces array in the MD code
   virtual void setf(void*f)=0;
 /// Set a pointer to the position array in the MD code
   virtual void setp(void*p,int i)=0;
+/// Set a pointer to the velocities array in the MD code <------ New
+  virtual void setv(void*v,int i)=0;
 /// Set a pointer to the force array in the MD code
   virtual void setf(void*f,int i)=0;
 /// Set internal and MD units
@@ -85,6 +89,13 @@ public:
   virtual void getPositions(const std::vector<int>&index,std::vector<Vector>&p)const=0;
 /// Retrieve all atom positions from index i to index j.
   virtual void getPositions(unsigned i,unsigned j,std::vector<Vector>&p)const=0;
+// <------------------ New!
+// Retrieve selected velocities.
+// The operation is done in such a way that p[index[i]] is equal to the velocities of atom i
+  virtual void getVelocities(const std::vector<int>&index,std::vector<Vector>&v)const=0;
+// Retrieve all atom velocities from index i to index j.
+  virtual void getVelocities(unsigned i,unsigned j,std::vector<Vector>&v)const=0;
+// <----------------- End of New!
 /// Retrieve selected masses.
 /// The operation is done in such a way that m[index[i]] is equal to the mass of atom i
   virtual void getMasses(const std::vector<int>&index,std::vector<double>&m)const=0;
@@ -93,6 +104,8 @@ public:
   virtual void getCharges(const std::vector<int>&index,std::vector<double>&c)const=0;
 /// Retrieve local positions.
   virtual void getLocalPositions(std::vector<Vector>&p)const=0;
+  /// Retrieve local velocities.
+  virtual void getLocalVelocities(std::vector<Vector>&v)const=0;
 /// Increment the virial by an amount v
   virtual void updateVirial(const Tensor&v)const=0;
 /// Increment the force on selected atoms.

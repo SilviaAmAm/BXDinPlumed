@@ -44,6 +44,7 @@ public MDAtomsBase
   T *m;
   T *c;
   T *px; T *py; T *pz;
+  T *vx; T *vy; T *vz;
   T *fx; T *fy; T *fz;
   T *box;
   T *virial;
@@ -53,9 +54,11 @@ public:
   void setc(void*m);
   void setBox(void*);
   void setp(void*p);
+  void setv(void*v);
   void setVirial(void*);
   void setf(void*f);
   void setp(void*p,int i);
+  void setv(void*v,int i);
   void setf(void*f,int i);
   void setUnits(const Units&,const Units&);
   void MD2double(const void*m,double&d)const{
@@ -71,7 +74,10 @@ public:
   void getBox(Tensor &)const;
   void getPositions(const vector<int>&index,vector<Vector>&positions)const;
   void getPositions(unsigned j,unsigned k,vector<Vector>&positions)const;
+  void getVelocities(const vector<int>&index,vector<Vector>&velocities)const;
+  void getVelocities(unsigned j,unsigned k,vector<Vector>&velocities)const;
   void getLocalPositions(std::vector<Vector>&p)const;
+  void getLocalVelocities(std::vector<Vector>&p)const;
   void getMasses(const vector<int>&index,vector<double>&)const;
   void getCharges(const vector<int>&index,vector<double>&)const;
   void updateVirial(const Tensor&)const;
@@ -122,6 +128,26 @@ void MDAtomsTyped<T>::getPositions(unsigned j,unsigned k,vector<Vector>&position
   }
 }
 
+template <class T>
+void MDAtomsTyped<T>::getVelocities(const vector<int>&index,vector<Vector>&velocities)const{
+// cannot be parallelized with omp because access to positions is not ordered
+  for(unsigned i=0;i<index.size();++i){
+    velocities[index[i]][0]=vx[stride*i]*scalep;
+    velocities[index[i]][1]=vy[stride*i]*scalep;
+    velocities[index[i]][2]=vz[stride*i]*scalep;
+  }
+}
+
+template <class T>
+void MDAtomsTyped<T>::getVelocities(unsigned j,unsigned k,vector<Vector>&velocities)const{
+  #pragma omp parallel for num_threads(OpenMP::getGoodNumThreads(&velocities[j],(k-j)))
+  for(unsigned i=j;i<k;++i){
+    velocities[i][0]=vx[stride*i]*scalep;
+    velocities[i][1]=vy[stride*i]*scalep;
+    velocities[i][2]=vz[stride*i]*scalep;
+  }
+}
+
 
 template <class T>
 void MDAtomsTyped<T>::getLocalPositions(vector<Vector>&positions)const{
@@ -130,6 +156,16 @@ void MDAtomsTyped<T>::getLocalPositions(vector<Vector>&positions)const{
     positions[i][0]=px[stride*i]*scalep;
     positions[i][1]=py[stride*i]*scalep;
     positions[i][2]=pz[stride*i]*scalep;
+  }
+}
+
+template <class T>
+void MDAtomsTyped<T>::getLocalVelocities(vector<Vector>&velocities)const{
+  #pragma omp parallel for num_threads(OpenMP::getGoodNumThreads(velocities))
+  for(unsigned i=0;i<velocities.size();++i){
+    velocities[i][0]=vx[stride*i]*scalep;
+    velocities[i][1]=vy[stride*i]*scalep;
+    velocities[i][2]=vz[stride*i]*scalep;
   }
 }
 
@@ -188,6 +224,17 @@ void MDAtomsTyped<T>::setp(void*pp){
 }
 
 template <class T>
+void MDAtomsTyped<T>::setv(void*vv){
+  T*v=static_cast<T*>(vv);
+  plumed_assert(stride==0 || stride==3);
+  vx=v;
+  vy=v+1;
+  vz=v+2;
+  stride=3;
+}
+
+
+template <class T>
 void MDAtomsTyped<T>::setBox(void*pp){
   box=static_cast<T*>(pp);
 }
@@ -210,6 +257,16 @@ void MDAtomsTyped<T>::setp(void*pp,int i){
   if(i==0)px=p;
   if(i==1)py=p;
   if(i==2)pz=p;
+  stride=1;
+}
+
+template <class T>
+void MDAtomsTyped<T>::setv(void*vv,int i){
+  T*v=static_cast<T*>(vv);
+  plumed_assert(stride==0 || stride==1);
+  if(i==0)vx=v;
+  if(i==1)vy=v;
+  if(i==2)vz=v;
   stride=1;
 }
 
@@ -253,6 +310,9 @@ MDAtomsTyped<T>::MDAtomsTyped():
   px(NULL),
   py(NULL),
   pz(NULL),
+  vx(NULL),
+  vy(NULL),
+  vz(NULL),
   fx(NULL),
   fy(NULL),
   fz(NULL),

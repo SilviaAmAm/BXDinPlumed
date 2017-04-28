@@ -47,6 +47,7 @@ Atoms::Atoms(PlumedMain&plumed):
   collectEnergy(false),
   energyHasBeenSet(false),
   positionsHaveBeenSet(0),
+  velocitiesHaveBeenSet(0),
   massesHaveBeenSet(false),
   chargesHaveBeenSet(false),
   boxHasBeenSet(false),
@@ -76,6 +77,7 @@ Atoms::~Atoms(){
 
 void Atoms::startStep(){
   collectEnergy=false; energyHasBeenSet=false; positionsHaveBeenSet=0;
+  velocitiesHaveBeenSet=0;
   massesHaveBeenSet=false; chargesHaveBeenSet=false; boxHasBeenSet=false;
   forcesHaveBeenSet=0; virialHasBeenSet=false; dataCanBeSet=true;
 }
@@ -89,6 +91,12 @@ void Atoms::setPositions(void*p){
   plumed_massert( dataCanBeSet ,"setPositions must be called after setStep in MD code interface");
   plumed_massert( p || gatindex.size()==0, "NULL position pointer with non-zero local atoms");
   mdatoms->setp(p); positionsHaveBeenSet=3;
+}
+
+void Atoms::setVelocities(void*v){
+  plumed_massert( dataCanBeSet ,"setVelocities must be called after setStep in MD code interface");
+  plumed_massert( v || gatindex.size()==0, "NULL velocity pointer with non-zero local atoms");
+  mdatoms->setv(v); velocitiesHaveBeenSet=3;
 }
 
 void Atoms::setMasses(void*p){
@@ -128,6 +136,12 @@ void Atoms::setPositions(void*p,int i){
   plumed_massert( dataCanBeSet ,"setPositions must be called after setStep in MD code interface");
   plumed_massert( p || gatindex.size()==0, "NULL positions pointer with non-zero local atoms");
   mdatoms->setp(p,i); positionsHaveBeenSet++;
+}
+
+void Atoms::setVelocities(void*v,int i){
+  plumed_massert( dataCanBeSet ,"setVelocities must be called after setStep in MD code interface");
+  plumed_massert( v || gatindex.size()==0, "NULL velocities pointer with non-zero local atoms");
+  mdatoms->setp(v,i); velocitiesHaveBeenSet++;
 }
 
 void Atoms::setForces(void*p,int i){
@@ -181,9 +195,11 @@ void Atoms::share(const std::set<AtomNumber>& unique){
   if(int(gatindex.size())==natoms && shuffledAtoms==0){
 // faster version, which retrieves all atoms
     mdatoms->getPositions(0,natoms,positions);
+    mdatoms->getVelocities(0,natoms,velocities);
   } else {
 // version that picks only atoms that are available on this proc
     mdatoms->getPositions(gatindex,positions);
+    mdatoms->getVelocities(gatindex,velocities);
   }
 // how many double per atom should be scattered:
   int ndata=3;
@@ -198,6 +214,7 @@ void Atoms::share(const std::set<AtomNumber>& unique){
   if(dd && shuffledAtoms>0){
     if(dd.async){
       for(unsigned i=0;i<dd.mpi_request_positions.size();i++) dd.mpi_request_positions[i].wait();
+      for(unsigned i=0;i<dd.mpi_request_velocities.size();i++) dd.mpi_request_velocities[i].wait();
       for(unsigned i=0;i<dd.mpi_request_index.size();i++)     dd.mpi_request_index[i].wait();
     }
     int count=0;
@@ -207,6 +224,11 @@ void Atoms::share(const std::set<AtomNumber>& unique){
         dd.positionsToBeSent[ndata*count+0]=positions[p->index()][0];
         dd.positionsToBeSent[ndata*count+1]=positions[p->index()][1];
         dd.positionsToBeSent[ndata*count+2]=positions[p->index()][2];
+
+        dd.velocitiesToBeSent[ndata*count+0]=velocities[p->index()][0];
+        dd.velocitiesToBeSent[ndata*count+1]=velocities[p->index()][1];
+        dd.velocitiesToBeSent[ndata*count+2]=velocities[p->index()][2];
+
         if(!massAndChargeOK){
           dd.positionsToBeSent[ndata*count+3]=masses[p->index()];
           dd.positionsToBeSent[ndata*count+4]=charges[p->index()];
@@ -214,13 +236,14 @@ void Atoms::share(const std::set<AtomNumber>& unique){
         count++;
       }
     }
+    // This is not modified for the velocities yet because I don't understand what it's doing
     if(dd.async){
       asyncSent=true;
       dd.mpi_request_positions.resize(dd.Get_size());
       dd.mpi_request_index.resize(dd.Get_size());
       for(int i=0;i<dd.Get_size();i++){
         dd.mpi_request_index[i]=dd.Isend(&dd.indexToBeSent[0],count,i,666);
-        dd.mpi_request_positions[i]=dd.Isend(&dd.positionsToBeSent[0],ndata*count,i,667);
+        dd.mpi_request_positions[i]=dd.Isend(&dd.positionsToBeSent[0],ndata*count,i,667); // 
       }
     }else{
       const int n=(dd.Get_size());
@@ -277,6 +300,10 @@ void Atoms::wait(){
         positions[dd.indexToBeReceived[i]][0]=dd.positionsToBeReceived[ndata*i+0];
         positions[dd.indexToBeReceived[i]][1]=dd.positionsToBeReceived[ndata*i+1];
         positions[dd.indexToBeReceived[i]][2]=dd.positionsToBeReceived[ndata*i+2];
+
+        velocities[dd.indexToBeReceived[i]][0]=dd.velocitiesToBeReceived[ndata*i+0];
+        velocities[dd.indexToBeReceived[i]][1]=dd.velocitiesToBeReceived[ndata*i+1];
+        velocities[dd.indexToBeReceived[i]][2]=dd.velocitiesToBeReceived[ndata*i+2];        
         if(!massAndChargeOK){
           masses[dd.indexToBeReceived[i]]      =dd.positionsToBeReceived[ndata*i+3];
           charges[dd.indexToBeReceived[i]]     =dd.positionsToBeReceived[ndata*i+4];
@@ -307,6 +334,7 @@ void Atoms::updateForces(){
 void Atoms::setNatoms(int n){
   natoms=n;
   positions.resize(n);
+  velocities.resize(n);
   forces.resize(n);
   masses.resize(n);
   charges.resize(n);
@@ -343,6 +371,8 @@ void Atoms::setAtomsNlocal(int n){
     if(n==0) n++;
     dd.positionsToBeSent.resize(n*5,0.0);
     dd.positionsToBeReceived.resize(natoms*5,0.0);
+    dd.velocitiesToBeSent.resize(n*5,0.0);
+    dd.velocitiesToBeReceived.resize(natoms*5,0.0);
     dd.indexToBeSent.resize(n,0);
     dd.indexToBeReceived.resize(natoms,0);
   };
@@ -451,6 +481,7 @@ void Atoms::setDomainDecomposition(Communicator& comm){
 
 void Atoms::resizeVectors(unsigned n){
   positions.resize(n);
+  velocities.resize(n);
   forces.resize(n);
   masses.resize(n);
   charges.resize(n);
@@ -481,7 +512,7 @@ void Atoms::removeGroup(const std::string&name){
 }
 
 void Atoms::writeBinary(std::ostream&o)const{
-  o.write(reinterpret_cast<const char*>(&positions[0][0]),natoms*3*sizeof(double));
+  o.write(reinterpret_cast<const char*>(&positions[0][0]),natoms*3*sizeof(double));  // May need modification to add velocities?
   o.write(reinterpret_cast<const char*>(&box(0,0)),9*sizeof(double));
   o.write(reinterpret_cast<const char*>(&energy),sizeof(double));
 }
@@ -511,6 +542,11 @@ void Atoms::getLocalMasses(std::vector<double>& localMasses){
 void Atoms::getLocalPositions(std::vector<Vector>& localPositions){
   localPositions.resize(gatindex.size());
   mdatoms->getLocalPositions(localPositions);
+}
+
+void Atoms::getLocalVelocities(std::vector<Vector>& localVelocities){
+  localVelocities.resize(gatindex.size());
+  mdatoms->getLocalVelocities(localVelocities);
 }
 
 void Atoms::getLocalForces(std::vector<Vector>& localForces){

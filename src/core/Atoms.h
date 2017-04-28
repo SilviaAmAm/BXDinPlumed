@@ -48,6 +48,7 @@ class Atoms
   friend class ActionWithVirtualAtom;
   int natoms;
   std::vector<Vector> positions;
+  std::vector<Vector> velocities;
   std::vector<Vector> forces;
   std::vector<double> masses;
   std::vector<double> charges;
@@ -64,6 +65,7 @@ class Atoms
   bool   collectEnergy;
   bool   energyHasBeenSet;
   unsigned positionsHaveBeenSet;
+  unsigned velocitiesHaveBeenSet;
   bool massesHaveBeenSet;
   bool chargesHaveBeenSet;
   bool boxHasBeenSet;
@@ -108,10 +110,13 @@ class Atoms
     std::vector<int>    g2l;
 
     std::vector<Communicator::Request> mpi_request_positions;
+    std::vector<Communicator::Request> mpi_request_velocities;
     std::vector<Communicator::Request> mpi_request_index;
     
     std::vector<double> positionsToBeSent;
     std::vector<double> positionsToBeReceived;
+    std::vector<double> velocitiesToBeSent;
+    std::vector<double> velocitiesToBeReceived;
     std::vector<int>    indexToBeSent;
     std::vector<int>    indexToBeReceived;
     operator bool(){return on;}
@@ -155,6 +160,7 @@ public:
   const Pbc& getPbc()const;
   void getLocalMasses(std::vector<double>&);
   void getLocalPositions(std::vector<Vector>&);
+  void getLocalVelocities(std::vector<Vector>&);
   void getLocalForces(std::vector<Vector>&);
   void getLocalMDForces(std::vector<Vector>&);
   const Tensor& getVirial()const;
@@ -172,6 +178,8 @@ public:
   void setVirial(void*);
   void setPositions(void*);
   void setPositions(void*,int);
+  void setVelocities(void*);
+  void setVelocities(void*,int);
   void setForces(void*);
   void setForces(void*,int);
   void setMasses(void*);

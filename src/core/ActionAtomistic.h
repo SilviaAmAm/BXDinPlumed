@@ -43,6 +43,7 @@ class ActionAtomistic :
   std::vector<AtomNumber> indexes;         // the set of needed atoms
   std::set<AtomNumber>  unique;
   std::vector<Vector>   positions;       // positions of the needed atoms
+  std::vector<Vector>   velocities;     // velocities of the needed atoms
   double                energy;
   Pbc&                  pbc;
   Tensor                virial;
@@ -77,8 +78,17 @@ public:
 /// Get modifiable position of i-th atom (access by absolute AtomNumber).
 /// Should be used by action that need to modify the stored atomic coordinates
   Vector & modifyPosition(AtomNumber);
+/// Can be used to make a loop on modifyVelocities or getVelocities(AtomNumber)
+/// Get velocities of i-th atom (access by relative index) <----------------- New!
+  const Vector & getVelocity(int)const;
+/// Get velocity of i-th atom (access by absolute AtomNumber).
+/// With direct access to the global atom array
+  const Vector & getVelocity(AtomNumber)const;
+/// Get modifiable velocity of i-th atom (access by absolute AtomNumber).
+/// Should be used by action that need to modify the stored atomic coordinates
+  Vector & modifyVelocity(AtomNumber); // <----------  End of New!
 /// Get total number of atoms, including virtual ones.
-/// Can be used to make a loop on modifyPosition or getPosition(AtomNumber)
+/// Can be used to make a loop on modifyPosition or getPosition(AtomNumber) 
   unsigned getTotAtoms()const;
 /// Get modifiable force of i-th atom (access by absolute AtomNumber).
 /// Should be used by action that need to modify the stored atomic forces
@@ -93,6 +103,8 @@ public:
   const Tensor & getBox()const;
 /// Get the array of all positions
   const std::vector<Vector> & getPositions()const;
+/// Get the array of all velocities  <------------- New!
+  const std::vector<Vector> & getVelocities()const;
 /// Get energy
   const double & getEnergy()const;
 /// Get mass of i-th atom
@@ -182,6 +194,24 @@ Vector & ActionAtomistic::modifyPosition(AtomNumber i){
   return atoms.positions[i.index()];
 }
 
+
+// <------------- New!
+inline
+const Vector & ActionAtomistic::getVelocity(int i)const{
+  return velocities[i];
+}
+
+inline
+const Vector & ActionAtomistic::getVelocity(AtomNumber i)const{
+  return atoms.velocities[i.index()];
+}
+
+inline
+Vector & ActionAtomistic::modifyVelocity(AtomNumber i){
+  return atoms.velocities[i.index()];
+}
+// <------------- End of New!
+
 inline
 Vector & ActionAtomistic::modifyGlobalForce(AtomNumber i){
   return atoms.forces[i.index()];
@@ -217,6 +247,13 @@ inline
 const std::vector<Vector> & ActionAtomistic::getPositions()const{
   return positions;
 }
+
+// <------------- New!
+inline
+const std::vector<Vector> & ActionAtomistic::getVelocities()const{
+  return velocities;
+}
+// <------------- End of New!
 
 inline
 const double & ActionAtomistic::getEnergy()const{

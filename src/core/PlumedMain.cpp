@@ -140,6 +140,10 @@ void PlumedMain::cmd(const std::string & word,void*val){
         CHECK_INIT(initialized,word);
         atoms.setPositions(val);
         break;
+      // New - setting velocities
+      case cmd_setVelocities:
+        CHECK_INIT(initialized, word);
+        atoms.setVelocities(val);
       case cmd_setMasses:
         CHECK_INIT(initialized,word);
         atoms.setMasses(val);
