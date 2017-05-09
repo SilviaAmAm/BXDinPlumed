@@ -6,11 +6,6 @@
 #include "/Users/walfits/OpenMM-from-src/Source/plumed/src/core/ActionWithValue.h"
 #include "/Users/walfits/OpenMM-from-src/Source/plumed/src/core/Atoms.h"
 
-#include "/Users/walfits/OpenMM-from-src/Source/plumed/src/bias/Bias.h"
-
-// #include "/Users/walfits/Repositories/plumed2/src/tools/AtomNumber.h"
-
-
 #include <string>
 #include <cmath>
 #include <cassert>
@@ -23,10 +18,8 @@
 
 
 namespace PLMD{
-// namespace bias{
 
 class BXD :
-    // public Bias,
     public ActionAtomistic,
     public ActionPilot,
     public ActionWithArguments
@@ -37,10 +30,8 @@ class BXD :
       int natoms;
 
       // Resolving the diamond inheritance from ActionAtomistic and ActionWithArguments
-      bool lockRequestArguments;
-      bool lockRequestAtoms;
-      virtual void lockRequests(){};
-      virtual void unlockRequests(){};
+      virtual void lockRequests();
+      virtual void unlockRequests();
       virtual void calculateNumericalDerivatives( ActionWithValue* a=NULL ){};
     
     
@@ -60,17 +51,14 @@ PLUMED_REGISTER_ACTION(BXD,"BXD")
     
 void BXD::registerKeywords(Keywords& keys)
 {
-    // Bias::registerKeywords(keys);
     Action::registerKeywords( keys );
     ActionAtomistic::registerKeywords(keys);
     ActionPilot::registerKeywords(keys);
     ActionWithArguments::registerKeywords(keys);
     keys.add("hidden","STRIDE","The stride for ActionPilot");
-    // keys.add("atoms","ATOMS","the pair of atom that we are calculating the distance between");
-    // keys.use("ARG");                // This enables to use collective variables
-    // keys.add("compulsory","BOXSEP","10.0","Defines the separation between the boxes");
-    // keys.add("compulsory","NUMBOXES","10","Defines the number of boxes to use");
-//    keys.addOutputComponent("bxdbias","default","the instantaneous value of the bias potential");
+    keys.use("ARG");                // This enables to use collective variables
+    keys.add("compulsory","BOXSEP","10.0","Defines the separation between the boxes");
+    keys.add("compulsory","NUMBOXES","10","Defines the number of boxes to use");
 }
 
     
@@ -78,23 +66,33 @@ void BXD::registerKeywords(Keywords& keys)
     
 BXD::BXD(const ActionOptions& ao):
     Action(ao),
-    // Bias(ao),
     ActionAtomistic(ao),
     ActionPilot(ao),
     ActionWithArguments(ao)
 {
-    // parse("BOXSEP", boxSeparation);
-    // parse("NUMBOXES", numBoxes);
+    parse("BOXSEP", boxSeparation);
+    parse("NUMBOXES", numBoxes);
     checkRead();
 
-    int natoms;
+    // This requests all the atoms in the system, so that their position and velocity are available
     natoms = getTotAtoms();
     std::vector<AtomNumber> index(natoms);
     for(int i = 0; i < natoms; i++)
     {
         index[i].setIndex(i);
     }
+
+    // The dependencies have to be copied because in requestAtoms() all the dependencies are cleared. 
+    Dependencies copy(getDependencies());
     requestAtoms(index);
+
+    for (auto action : copy)
+    //for (std::vector<int>::iterator it = copy.begin(); it != copy.end(); ++it)
+    {
+        addDependency(action);
+    }
+    // This is to activate the arguments (collective variable)
+
 
 }
 
@@ -103,23 +101,12 @@ BXD::BXD(const ActionOptions& ao):
     
 void BXD::calculate()
 {
+    double colvar;
 
+    colvar = getArgument(0);
     std::vector<Vector> vel = getVelocities();
 
-    std::cout << "Velocity Ar 1\t" << vel[0][0] << "\t" << vel[0][1] << "\t" << vel[0][2] << "\n";
-    std::cout << "Velocity Ar 3\t" << vel[2][0] << "\t" << vel[2][1] << "\t" << vel[2][2] << "\n";
-
-    // int natoms;
-    // natoms = getTotAtoms();
-    // std::vector<AtomNumber> index(natoms);
-    // for(int i = 0; i < natoms; i++)
-    // {
-    //     index[i].setIndex(i);
-    // }
-    // requestAtoms(index);
-
-    // std::vector<Vector> pos = getPositions();
-    // // std::vector<Vector> vel = getVelocities();
+  
     
     // if(isFirstStep)
     // {
@@ -130,13 +117,6 @@ void BXD::calculate()
     //     //
     // }
 }
-    
-    
-    
-    
-    
-    
-    
     
 /* This is the function that applies the changes calculated in the function 'calculate'. Both 'apply' and 'calculate' are virtual functions that are first introduced in Action.h and then have to be defined in the derived classes. */
     
@@ -159,29 +139,22 @@ void BXD::calculate()
 //}
     
     
-/* Resolving the diamond inheritance problem. The virtual functions 'lockRequest' and 'unlockRequest' appear in the base class Action and in the two child classes ActionWithArguments and ActionAtomistic. BXD is the only class so far in PLUMED that inherits from both ActionWithArguments and ActionAtomistic, so a final overrider has to be present. For now, I just joined the two functions that were in ActionWithArguments and ActionAtomistic into one. */
+/* Resolving the diamond inheritance problem. The virtual functions 'lockRequest' and 'unlockRequest' appear in the base class Action 
+and in the two child classes ActionWithArguments and ActionAtomistic. BXD is the only class so far in PLUMED that inherits 
+from both ActionWithArguments and ActionAtomistic, so a final overrider has to be present. 
+For now, I just joined the two functions that were in ActionWithArguments and ActionAtomistic into one. */
     
-// void BXD::lockRequests()
-// {
-//     lockRequestArguments=true;
-//     lockRequestAtoms=true;
-// }
+void BXD::lockRequests()
+{
+    ActionWithArguments::lockRequests();
+}
 
-// void BXD::unlockRequests()
-// {
-//     lockRequestArguments=false;
-//     lockRequestAtoms=false;
-// }
-    
-/* This is again a problem of diamond inheritance.  */
-    
-//void BXD::calculateNumericalDerivatives( ActionWithValue* a )
-//{
-//    
-//}
-//    
+void BXD::unlockRequests()
+{
+    ActionWithArguments::unlockRequests();
+}
+
 
     
 // Brackets from the namespaces!
-// }
 }
